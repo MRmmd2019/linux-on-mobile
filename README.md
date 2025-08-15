@@ -75,12 +75,14 @@ stop-<distro>-<desktop>-vnc
 📱 اندروید ۱۲ به بعد مکانیزمی داره که باعث بسته‌شدن Termux هنگام اجرای چند پردازش می‌شه
 
 📱 Starting from Android 12, there's a mechanism that causes Termux to close when multiple processes are running.
+<img src="https://github.com/SamirPaulb/SamirPaulb/blob/main/assets/rainbow-superthin.webp?raw=true" width="100%" />
 ### راه‌ حل اول با گوشی: | Solution 1 – Using the Phone:
 
 1. فعال‌کردن Enable Developer Options | Developer Options
 3. ورود به تنظیمات توسعه‌دهنده | Enter Developer Settings 
 3. رفتن به Enter Developer Settings | Feature Flags 
 4. غیرفعال‌کردن گزینه Disable the option `settings_enable_monitor_phantom_procs` | `settings_enable_monitor_phantom_procs`
+<img src="https://github.com/SamirPaulb/SamirPaulb/blob/main/assets/rainbow-superthin.webp?raw=true" width="100%" />
 
 ### راه حل دوم با adb و کامپیوتر (پیشنهاد می شود): | Solution 2 – Using adb and PC (Recommended):
 
@@ -88,10 +90,46 @@ stop-<distro>-<desktop>-vnc
 ```bash
 Settings → Developer Options → USB Debugging → ON
 ```
+
 #### اتصال گوشی به کامپیوتر با کابل USB و بررسی اتصال | Connect the phone to PC via USB cable and check connection
 ```bash
 adb devices
 ```
+
+#### سپس این سه دستور را به ترتیب اجرا کنید: | Then run these three commands in order:
+
+```Bash
+adb shell "/system/bin/device_config set_sync_disabled_for_tests persistent"
+```
+```Bash
+adb shell "/system/bin/device_config put activity_manager max_phantom_processes 2147483647"
+```
+```Bash
+adb shell settings put global settings_enable_monitor_phantom_procs false
+```
+
+
+#### و برای اطمینان از موفقیت آمیز بودن عملیات : | And to ensure the success of the operation:
+
+1. بررسی وضعیت Checking the sync status: | :sync
+```Bash
+adb shell "/system/bin/device_config get_sync_disabled_for_tests"
+```
+`* باید خروجی برابر با persistent باشه | *The output should be equal to persistent`
+
+2. بررسی مقدارCheck the phantom process value: | :phantom process
+
+```Bash
+adb shell "/system/bin/device_config get activity_manager max_phantom_processes"
+```
+`*باید مقدار برابر با 2147483647 باشه | *The value should be equal to 2147483647`
+
+3. بررسی مقدار مانیتور: | Checking the value of the monitor:
+
+```Bash
+adb shell settings get global settings_enable_monitor_phantom_procs
+```
+`*باید خروجی برابر با false باشه | *The output should be false`
 > منبع: [مستندات Andronix](https://docs.andronix.app/android-12/andronix-on-android-12-and-beyond)
 
 <img src="https://github.com/SamirPaulb/SamirPaulb/blob/main/assets/rainbow-superthin.webp?raw=true" width="100%" />
