@@ -11,7 +11,7 @@ RESET='\e[0m'
 banner() {
 echo -e "${CYAN}"
 echo "╔════════════════════════════════════════════╗"
-echo "║   🚀 Linux-on-Mobile Installer v1.0        ║"
+echo "║   🚀 Linux-on-Mobile Installer v3.0        ║"
 echo "║   📱 Run full Linux desktops on Android    ║"
 echo "║   🛠️ Powered by Termux + VNC               ║"
 echo "╚════════════════════════════════════════════╝"
@@ -21,20 +21,15 @@ banner
 sleep 1
 
 # بررسی محیط
-echo -ne "🔍 Checking Termux environment..."
-sleep 0.5
 if [ ! -d "/data/data/com.termux/files/usr" ]; then
   echo -e "${RED} ❌ Not running inside Termux!${RESET}"
   exit 1
-else
-  echo -e "${GREEN} OK${RESET}"
 fi
 
 # نصب پیش‌نیازها
 echo -ne "📦 Installing required packages"
-for i in {1..3}; do echo -n "."; sleep 0.4; done
 pkg update -y >/dev/null 2>&1
-pkg install -y proot-distro tigervnc whiptail coreutils >/dev/null 2>&1
+pkg install -y proot-distro tigervnc whiptail coreutils >/dev/null 2>&1 || { echo -e "${RED}Package install failed${RESET}"; exit 1; }
 echo -e "${GREEN} Done!${RESET}"
 
 # انتخاب توزیع
@@ -44,7 +39,7 @@ DISTRO=$(whiptail --title "🐧 Choose Linux Distro" --menu "Select one:" 20 60 
   "archlinux" "Arch Linux (advanced)" \
   "fedora" "Fedora (fresh)" \
   "opensuse" "openSUSE (Leap)" \
-  3>&1 1>&2 2>&3)
+  3>&1 1>&2 2>&3) || { echo -e "${RED}Cancelled${RESET}"; exit 1; }
 
 # انتخاب دسکتاپ
 DESKTOP=$(whiptail --title "🎨 Choose Desktop" --menu "Select one:" 20 60 10 \
@@ -53,45 +48,43 @@ DESKTOP=$(whiptail --title "🎨 Choose Desktop" --menu "Select one:" 20 60 10 \
   "mate" "MATE (classic)" \
   "cinnamon" "Cinnamon (modern)" \
   "plasma" "KDE Plasma (minimal)" \
-  3>&1 1>&2 2>&3)
+  3>&1 1>&2 2>&3) || { echo -e "${RED}Cancelled${RESET}"; exit 1; }
 
 # رزولوشن
-GEOM=$(whiptail --inputbox "📐 Enter VNC resolution (e.g. 1280x720)" 10 60 "1280x720" 3>&1 1>&2 2>&3)
+GEOM=$(whiptail --inputbox "📐 Enter VNC resolution (e.g. 1280x720)" 10 60 "1280x720" 3>&1 1>&2 2>&3) || exit 1
 
 # پسورد VNC
-PASS=$(whiptail --passwordbox "🔑 Enter VNC password" 10 60 3>&1 1>&2 2>&3)
+PASS=$(whiptail --passwordbox "🔑 Enter VNC password" 10 60 3>&1 1>&2 2>&3) || exit 1
 
 # نصب توزیع
 echo -ne "🛠️ Installing $DISTRO"
-for i in {1..5}; do echo -n "."; sleep 0.3; done
-proot-distro install "$DISTRO" >/dev/null 2>&1
+proot-distro install "$DISTRO" >/dev/null 2>&1 || { echo -e "${RED}Install failed${RESET}"; exit 1; }
 echo -e "${GREEN} Done!${RESET}"
 
 # نصب دسکتاپ داخل توزیع
 echo -ne "🎨 Installing $DESKTOP desktop"
-for i in {1..5}; do echo -n "."; sleep 0.3; done
 proot-distro login "$DISTRO" -- bash -c "
-apt update -y && apt upgrade -y
-case $DESKTOP in
+apt update -y && apt upgrade -y || exit 1
+apt install -y sudo dbus-x11 xterm || exit 1
+case \"$DESKTOP\" in
   xfce) apt install -y xfce4 xfce4-goodies ;;
   lxde) apt install -y lxde ;;
   mate) apt install -y mate-desktop-environment ;;
   cinnamon) apt install -y cinnamon ;;
   plasma) apt install -y kde-plasma-desktop ;;
 esac
-apt install -y tigervnc-standalone-server
-" >/dev/null 2>&1
+apt install -y tigervnc-standalone-server || exit 1
+" >/dev/null 2>&1 || { echo -e "${RED}Desktop install failed${RESET}"; exit 1; }
 echo -e "${GREEN} Done!${RESET}"
 
 # ایجاد اسکریپت‌های اجرا/توقف VNC
 mkdir -p $HOME/.vnc-scripts
 cat > $HOME/.vnc-scripts/start-vnc.sh <<EOF
 #!/bin/bash
-vncserver -geometry $GEOM -passwd <<EOPASS
-$PASS
-$PASS
-n
-EOPASS
+mkdir -p ~/.vnc
+echo "$PASS" | vncpasswd -f > ~/.vnc/passwd
+chmod 600 ~/.vnc/passwd
+vncserver -geometry "$GEOM" :1
 EOF
 
 cat > $HOME/.vnc-scripts/stop-vnc.sh <<EOF
@@ -102,14 +95,4 @@ EOF
 chmod +x $HOME/.vnc-scripts/*
 
 # پیام پایانی
-echo -e "${CYAN}"
-echo "╔════════════════════════════════════════════╗"
-echo "║   ✅ Installation Complete!                ║"
-echo "║                                            ║"
-echo "║   ▶️ Start VNC: bash ~/.vnc-scripts/start-vnc.sh ║"
-echo "║   ⛔ Stop VNC : bash ~/.vnc-scripts/stop-vnc.sh  ║"
-echo "║   📡 Connect to: 127.0.0.1:5901 (Display :1)   ║"
-echo "║                                            ║"
-echo "║   🎉 Enjoy your Linux desktop on Android!  ║"
-echo "╚════════════════════════════════════════════╝"
-echo -e "${RESET}"
+whiptail --title "✅ Installation Complete" --msgbox "Start VNC: bash ~/.vnc-scripts/start-vnc.sh\nStop VNC: bash ~/.vnc-scripts/stop-vnc.sh\nConnect to: 127.0.0.1:5901" 12 60
